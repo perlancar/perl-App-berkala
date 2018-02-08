@@ -1,0 +1,98 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010001;
+use strict;
+use warnings;
+use Log::ger;
+
+use Getopt::Long::Subcommand;
+
+GetOptions(
+    summary => '',
+);
+
+# ABSTRACT: Execute scheduled commands
+# PODNAME:
+
+=head1 SYNOPSIS
+
+First, create a configuration file at F<~/berkala.ini> (or
+F<~/.config/berkala.ini>) that contains jobs and other configurations, e.g.:
+
+ [job/1] ; define a job named '1'
+ command = foo
+ env = {"DEBUG":1}
+
+ [job/cleanup] ; defined a job named 'cleanup'
+ time_cron = 0 0 * * *
+ command = rm ~/*.log
+
+ [job] ; unnamed job will be named '#NUM', in this case '#3'
+
+Then run the daemon:
+
+ % berkala start-daemon
+
+To list jobs:
+
+ % berkala list-jobs
+
+To list what jobs will be run for the rest of the day:
+
+ % berkala list-job-instances
+
+To list what jobs will be run tomorrow between 1am and 6am:
+
+ % berkala list-job-instances --from 'tomorrow 1am' --to 'tomorrow 6am'
+
+To delete a job (will modify the configuration file):
+
+ % berkala delete-job 1
+ % berkala delete-job foo ;# error, no such job
+
+To run a job now:
+
+ % berkala run-job cleanup
+
+To run all jobs now:
+
+ % berkala run-all-jobs
+
+To stop the daemon:
+
+ % berkala stop-daemon
+
+
+=head1 DESCRIPTION
+
+B<EARLY DEVELOPMENT, SOME FEATURES ARE NOT YET IMPLEMENTED.>
+
+B<berkala> is a utility that can be used as an alternative to the traditional
+Unix B<cron> utility. It aims to fix several cron annoyances or limitations,
+mainly the lack of facility for testing/debugging. Differences with the
+traditional Unix cron:
+
+=over
+
+=item * Configuration file format
+
+Configuration file format is L<IOD> (which is mostly INI with a few extensions).
+Jobs are specified in INI sections. This makes it possible to specify more
+aspects about a job.
+
+=back
+
+I<berkala> is an Indonesian word which means "periodically".
+
+
+=head1 SUBCOMMANDS
+
+
+=head1 SEE ALSO
+
+B<cron>
+
+=cut

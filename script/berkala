@@ -4,15 +4,71 @@
 # VERSION
 
 use 5.010001;
-use strict;
+use strict 'subs', 'vars';
 use warnings;
 use Log::ger;
 
 use Getopt::Long::Subcommand;
+use Log::ger::App;
 
-GetOptions(
-    summary => '',
+my %args;
+my $res = GetOptions(
+    summary => 'Execute scheduled commands',
+
+    options => {
+        'help|h|?' => {
+            summary => 'Display help message',
+            handler => sub {
+                print <<'_';
+Usage: berkala [common-options] <subcommand> [options]
+
+Common options:
+  --help, -h, -?   Display this help message and exit.
+  --version, -v    Show program version and exit.
+
+For list of subcommands and other details, see the manpage.
+
+_
+                exit 0;
+            },
+        },
+        'version|v' => {
+            summary => 'Show program version and exit',
+            handler => sub {
+                no warnings 'once';
+                say "berkala version ", ($main::VERSION // 'dev');
+                exit 0;
+            },
+        },
+    },
+
+    subcommands => {
+        'start-daemon' => {
+            summary => 'Start daemon in the background',
+        },
+        'start-interactive' => {
+            summary => 'Start daemon interactively',
+        },
+        'stop-daemon' => {
+            summary => 'Stop daemon',
+        },
+        'list-tasks' => {
+            summary => 'List defined tasks',
+            options => {
+                'detail|l' => { handler => sub { $args{detail} = 1 } },
+            },
+        },
+    },
 );
+
+die "berkala: GetOptions failed\n" unless $res->{success};
+die "berkala: Missing subcommand\n" unless @{$res->{subcommand}};
+
+require App::berkala;
+App::berkala::read_config();
+
+(my $func = $res->{subcommand}[0]) =~ s/-/_/g;
+exit &{"App::berkala::$func"}(%args);
 
 # ABSTRACT: Execute scheduled commands
 # PODNAME:
@@ -20,46 +76,55 @@ GetOptions(
 =head1 SYNOPSIS
 
 First, create a configuration file at F<~/berkala.ini> (or
-F<~/.config/berkala.ini>) that contains jobs and other configurations, e.g.:
+F<~/.config/berkala.ini>) that contains tasks and other configurations, e.g.:
 
- [job/1] ; define a job named '1'
- command = foo
- env = {"DEBUG":1}
-
- [job/cleanup] ; defined a job named 'cleanup'
- time_cron = 0 0 * * *
+ [task/cleanup] ; defined a task named 'cleanup'
+ every = 0 0 * * *
  command = rm ~/*.log
 
- [job] ; unnamed job will be named '#NUM', in this case '#3'
+ [task/collect-data] ; define a task named 'collect-data'
+ every = */3 * * * *
+ command = foo
+ env = {"DEBUG":1}
 
 Then run the daemon:
 
  % berkala start-daemon
 
-To list jobs:
+Or to run interactively (for testing):
 
- % berkala list-jobs
+ % berkala start-interactive
 
-To list what jobs will be run for the rest of the day:
+To list tasks:
 
- % berkala list-job-instances
+ % berkala list-tasks
 
-To list what jobs will be run tomorrow between 1am and 6am:
+To list what tasks will be run for the rest of the day:
 
- % berkala list-job-instances --from 'tomorrow 1am' --to 'tomorrow 6am'
+ % berkala show-schedule
 
-To delete a job (will modify the configuration file):
+To list when and how many times the 'collect-data' task will be run tomorrow
+between 1am and 6pm:
 
- % berkala delete-job 1
- % berkala delete-job foo ;# error, no such job
+ % berkala show-schedule collect-data --from 'tomorrow 1am' --to 'tomorrow 6pm'
 
-To run a job now:
+To delete a task (will modify the configuration file):
 
- % berkala run-job cleanup
+ % berkala delete-task 1
+ % berkala delete-task foo ;# error, no such task
 
-To run all jobs now:
+To add task (will modify the configuration file):
 
- % berkala run-all-jobs
+ % berkala add-task test --command 'ls -l' --every '* * * * *'
+ % berkala add-task cleanup --command 'rm ~/*.old' ;# error, duplicate name
+
+To run a task now:
+
+ % berkala run-task cleanup
+
+To run all tasks now:
+
+ % berkala run-all-tasks
 
 To stop the daemon:
 
@@ -72,16 +137,33 @@ B<EARLY DEVELOPMENT, SOME FEATURES ARE NOT YET IMPLEMENTED.>
 
 B<berkala> is a utility that can be used as an alternative to the traditional
 Unix B<cron> utility. It aims to fix several cron annoyances or limitations,
-mainly the lack of facility for testing/debugging. Differences with the
-traditional Unix cron:
+mainly the lack of facility for testing/debugging and customizing
+output/logging. Differences with the traditional Unix cron:
 
 =over
 
-=item * Configuration file format
+=item * Configuration file format is IOD
 
-Configuration file format is L<IOD> (which is mostly INI with a few extensions).
-Jobs are specified in INI sections. This makes it possible to specify more
-aspects about a job.
+Berkala's configuration file format is L<IOD> (which is mostly INI with a few
+extensions). Tasks are specified in INI sections. This makes it possible to
+specify more aspects about a task, e.g. timeout, load control, etc.
+
+=item * Configurable output and logging
+
+=item * Ease of testing/debugging
+
+You can run all or some tasks immediately.
+
+You can easily use a mocked time.
+
+You can list what tasks will be run and when, for a specified time range in the
+future.
+
+You can run the daemon interactively.
+
+=item * Support schedule more often than 'once a minute'
+
+=item * Process governing
 
 =back
 
@@ -89,6 +171,20 @@ I<berkala> is an Indonesian word which means "periodically".
 
 
 =head1 SUBCOMMANDS
+
+=head2 list-tasks
+
+=head2 run-task
+
+=head2 run-all-tasks
+
+=head2 show-schedule
+
+=head2 start-daemon
+
+=head2 start-interactive
+
+=head2 stop-daemon
 
 
 =head1 SEE ALSO

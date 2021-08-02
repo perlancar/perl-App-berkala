@@ -2,3 +2,4 @@ App-berkala-*
 .build
 *~
 nytprof*
+.DS_Store
